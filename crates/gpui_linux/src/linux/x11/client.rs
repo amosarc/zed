@@ -374,7 +374,17 @@ impl X11Client {
         let compositor_present = check_compositor_present(&xcb_connection, root);
         let gtk_frame_extents_supported =
             check_gtk_frame_extents_supported(&xcb_connection, &atoms, root);
-        let client_side_decorations_supported = compositor_present && gtk_frame_extents_supported;
+        // Verve patch (branch `verve-force-csd`): only require a compositor for
+        // client-side decorations. WMs like deepin's kwin never list
+        // _GTK_FRAME_EXTENTS in _NET_SUPPORTED even while compositing, which
+        // made gpui fall back to server-side decorations and stack the WM
+        // title bar on top of apps that draw their own chrome. CSD works fine
+        // there without frame-extents support: the Motif undecorated hint
+        // still removes the WM frame, the app draws shadow/border/resize
+        // itself, and interactive resize goes through _NET_WM_MOVERESIZE.
+        // The compositor requirement stays: without one there is no ARGB
+        // visual, so drawn shadows would render as opaque artifacts.
+        let client_side_decorations_supported = compositor_present;
         log::info!(
             "x11: compositor present: {}, gtk_frame_extents_supported: {}",
             compositor_present,
